@@ -1,0 +1,42 @@
+# Test fixture only. Fake values; do not deploy as-is.
+esphome:
+  name: palpulse-ci
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+wifi:
+  ssid: "CI-ONLY-NETWORK"
+  password: "ci-only-test-password"
+logger:
+api:
+  homeassistant_services: true
+esp32_ble_tracker:
+ble_client:
+  - mac_address: "AA:BB:CC:DD:EE:FF"
+    id: powerpal_client
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+external_components:
+  - source:
+      type: local
+      path: components
+    components: [powerpal_ble]
+sensor:
+  - platform: powerpal_ble
+    ble_client_id: powerpal_client
+    pairing_code: 123456
+    notification_interval: 5
+    pulses_per_kwh: 3200
+    time_id: homeassistant_time
+    live_power: true
+    history_events: true
+    power:
+      name: "Powerpal Power"
+    energy:
+      name: "Powerpal Total Energy"
+    daily_energy:
+      name: "Powerpal Daily Energy"
+    battery_level:
+      name: "Powerpal Battery"

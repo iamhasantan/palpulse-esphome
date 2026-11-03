@@ -1,0 +1,52 @@
+name: Validate PalPulse
+on:
+  pull_request:
+
+concurrency:
+  group: palpulse-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    name: C++ tests and sanitizers
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: GCC regression tests
+        run: make test
+      - name: Clang ASan and UBSan
+        run: |
+          clang++ -std=c++17 -Wall -Wextra -Werror -pedantic -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer tests/test_wire.cpp -o /tmp/palpulse-wire
+          clang++ -std=c++17 -Wall -Wextra -Werror -pedantic -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer tests/test_accumulator.cpp -o /tmp/palpulse-accounting
+          /tmp/palpulse-wire
+          /tmp/palpulse-accounting
+  esphome:
+    name: ESPHome 2026.10.2 ESP-IDF build
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-test.txt
+      - run: python -m pip install -r requirements-test.txt
+      - run: python -m compileall -q components
+      - name: Validate ESPHome YAML
+        run: esphome config ci-powerpal.yaml
+      - name: Validate existing powerpal-proxy YAML structure
+        run: esphome config ci-existing-config.yaml
+      - name: Build ESP32 firmware and reject PalPulse compiler warnings
+        shell: bash
+        run: |
+          set -o pipefail
+          esphome compile ci-powerpal.yaml 2>&1 | tee /tmp/palpulse-build.log
+          if grep -E 'powerpal_ble/[^[:space:]]+:[0-9]+:[0-9]+: warning:' /tmp/palpulse-build.log; then
+            echo "::error::PalPulse component emitted compiler warnings"
+            exit 1
+          fi
