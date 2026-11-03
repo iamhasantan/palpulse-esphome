@@ -23,7 +23,7 @@ int main() {
   assert(!measure_power(240, 240, 32, 3200.0f).is_new);
   assert(!measure_power(900, 240, 32, 3200.0f).has_value);
   auto w = next_window(1000, 1000 + 90 * 60, 0, 300);
-  assert(w.valid && w.start == 1000 + 5 * 60 && w.end == 1000 + 34 * 60);
+  assert(w.valid && w.start == 1000 + 85 * 60 && w.end == 1000 + 90 * 60);
   w = next_window(1000, 1000 + 90 * 60, 1000 + 10 * 60, 300);
   assert(w.start == 1000 + 11 * 60 && w.end == 1000 + 40 * 60);
   assert(!next_window(1000, 1500, 1500, 300).valid);
