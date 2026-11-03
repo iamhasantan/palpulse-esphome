@@ -1,0 +1,10 @@
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.esphome/
+.pio/
+*.py[cod]
+.secrets.yaml
+secrets.yaml
+compile_commands.json
+.DS_Store

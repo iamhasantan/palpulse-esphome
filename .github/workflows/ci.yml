@@ -1,0 +1,41 @@
+name: Validate PalPulse
+on:
+  pull_request:
+  push:
+    branches: [main, "feat/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    name: C++ tests and sanitizers
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: GCC regression tests
+        run: make test
+      - name: Clang ASan and UBSan
+        run: |
+          clang++ -std=c++17 -Wall -Wextra -Werror -pedantic -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer tests/test_wire.cpp -o /tmp/palpulse-wire
+          clang++ -std=c++17 -Wall -Wextra -Werror -pedantic -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer tests/test_accumulator.cpp -o /tmp/palpulse-accounting
+          /tmp/palpulse-wire
+          /tmp/palpulse-accounting
+  esphome:
+    name: ESPHome 2026.10.2 ESP-IDF build
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-test.txt
+      - run: python -m pip install -r requirements-test.txt
+      - run: python -m compileall -q components
+      - name: Validate ESPHome YAML
+        run: esphome config ci-powerpal.yaml
+      - name: Build ESP32 firmware
+        run: esphome compile ci-powerpal.yaml

@@ -1,0 +1,1 @@
+"""PalPulse ESPHome external component."""
