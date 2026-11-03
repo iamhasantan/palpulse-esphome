@@ -97,21 +97,23 @@ void PalPulse::publish_energy_(bool caught_up) {
   if (!caught_up || !this->daily_)
     return;
 #ifdef USE_TIME
-  if (this->clock_) {
-    auto now = this->clock_->now();
-    if (!now.is_valid() || this->counter_.day_key !=
-           uint32_t(now.year) * 1000 + now.day_of_year)
-      return;
-  }
-#endif
+  if (!this->clock_)
+    return;
+  const auto now = this->clock_->now();
+  if (!now.is_valid() || this->counter_.day_key !=
+         uint32_t(now.year) * 1000 + now.day_of_year)
+    return;
   this->daily_->publish_state(static_cast<float>(this->counter_.daily_pulses) / this->pulses_per_kwh_);
+#endif
 }
 
 uint32_t PalPulse::local_day_(uint32_t timestamp) const {
 #ifdef USE_TIME
-  auto recorded = ESPTime::from_epoch_local(timestamp);
-  if (recorded.is_valid())
-    return uint32_t(recorded.year) * 1000 + recorded.day_of_year;
+  if (this->clock_ && this->clock_->now().is_valid()) {
+    auto recorded = ESPTime::from_epoch_local(timestamp);
+    if (recorded.is_valid())
+      return uint32_t(recorded.year) * 1000 + recorded.day_of_year;
+  }
 #endif
   return 0;  // No reliable timezone: never reset the daily counter on a guess.
 }
@@ -122,6 +124,8 @@ void PalPulse::clear_connection_() {
   this->cancel_timeout("palpulse_subscribe_retry");
   if (this->checkpoint_dirty_)
     this->save_checkpoint_();
+  if (this->power_)
+    this->power_->publish_state(NAN);  // Never leave a stale live watt value current.
   this->attr_ = {};
   this->phase_ = Phase::OFFLINE;
   this->request_ = Request::NONE;
@@ -348,6 +352,13 @@ void PalPulse::stream_complete_() {
     return;
   }
   this->publish_energy_(this->counter_.last_timestamp >= this->newest_record_);
+  if (this->attr_.battery) {
+    const auto err = esp_ble_gattc_read_char(this->parent()->get_gattc_if(),
+                                              this->parent()->get_conn_id(), this->attr_.battery,
+                                              ESP_GATT_AUTH_REQ_NONE);
+    if (err != ESP_OK)
+      ESP_LOGD(TAG, "Battery refresh was not queued: %d", err);
+  }
   this->schedule_poll_(this->counter_.last_timestamp < this->newest_record_
                        ? 1000 : uint32_t(this->interval_minutes_) * 60000);
 }

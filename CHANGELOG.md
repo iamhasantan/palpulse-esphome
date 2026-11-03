@@ -12,3 +12,6 @@
   build and a hardware validation plan.
 
 **Status:** development. No hardware validation or production release yet.
+
+- Guard daily-energy publication when local time is unavailable, refresh battery after each completed stream, and mark disconnected watts unavailable.
+- Avoid duplicate push and PR CI runs with PR-only workflows and cancellation of superseded runs.
