@@ -39,5 +39,7 @@ jobs:
       - run: python -m compileall -q components
       - name: Validate ESPHome YAML
         run: esphome config ci-powerpal.yaml
+      - name: Validate existing powerpal-proxy YAML structure
+        run: esphome config ci-existing-config.yaml
       - name: Build ESP32 firmware
         run: esphome compile ci-powerpal.yaml

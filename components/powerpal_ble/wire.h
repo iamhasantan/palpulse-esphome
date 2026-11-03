@@ -57,6 +57,12 @@ inline bool battery_percent(const uint8_t *bytes, size_t size, uint8_t &out) {
   return true;
 }
 
+// The Powerpal batch-size GATT characteristic accepts a 32-bit little-endian
+// value in minutes, not a single-byte value. Preserve that protocol encoding.
+inline void interval_payload(uint8_t (&bytes)[4], uint32_t minutes) {
+  put_u32le(bytes, minutes);
+}
+
 inline void request_payload(uint8_t (&bytes)[8], uint32_t start, uint32_t end) {
   put_u32le(bytes, start);
   put_u32le(bytes + 4, end);

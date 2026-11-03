@@ -210,7 +210,8 @@ bool PalPulse::write_clock_if_valid_() {
 
 void PalPulse::configure_interval_() {
   this->phase_ = Phase::INTERVAL;
-  uint8_t bytes[] = {this->interval_minutes_};
+  uint8_t bytes[4]{};
+  wire::interval_payload(bytes, this->interval_minutes_);
   if (!this->write_characteristic_(this->attr_.interval, bytes, sizeof(bytes)))
     this->set_timeout("palpulse_subscribe_retry", 5000, [this]() { this->configure_interval_(); });
 }
@@ -376,11 +377,15 @@ void PalPulse::request_timeout_() {
 void PalPulse::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t interface,
                                    esp_ble_gattc_cb_param_t *params) {
   (void) interface;
+  // Disconnect events can arrive without a parameter block. Always clear
+  // outstanding timers and stale connection handles on either lifecycle event.
+  if (event == ESP_GATTC_DISCONNECT_EVT || event == ESP_GATTC_CLOSE_EVT) {
+    this->clear_connection_();
+    return;
+  }
   if (!params)
     return;
   switch (event) {
-    case ESP_GATTC_CLOSE_EVT:
-      this->clear_connection_();
       break;
     case ESP_GATTC_SEARCH_CMPL_EVT:
       if (!this->discover_()) {
