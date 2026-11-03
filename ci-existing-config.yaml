@@ -19,7 +19,7 @@ logger:
 
 api:
   encryption:
-    key: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+    key: "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
   reboot_timeout: 0s
 
 ota:
