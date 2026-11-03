@@ -35,7 +35,7 @@ void PalPulse::queue_history_record_(uint32_t timestamp, uint16_t pulses, uint64
   if (!this->history_events_enabled_)
     return;
   if (this->history_count_ == HISTORY_QUEUE_SIZE) {
-    ESP_LOGW(TAG, "Timestamp history event queue full; dropping record %u. "
+    ESP_LOGW(TAG, "Timestamp history event queue full; dropping record %" PRIu32 ". "
                   "Companion importer will refuse incomplete hours", timestamp);
     return;
   }
