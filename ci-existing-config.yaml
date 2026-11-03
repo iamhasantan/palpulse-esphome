@@ -21,6 +21,7 @@ api:
   encryption:
     key: "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
   reboot_timeout: 0s
+  homeassistant_services: true
 
 ota:
   - platform: esphome
@@ -66,6 +67,7 @@ sensor:
     notification_interval: 5
     pulses_per_kwh: 3200
     time_id: homeassistant_time
+    history_events: true
     power:
       name: "Powerpal Power"
     daily_energy:
