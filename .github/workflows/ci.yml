@@ -41,5 +41,12 @@ jobs:
         run: esphome config ci-powerpal.yaml
       - name: Validate existing powerpal-proxy YAML structure
         run: esphome config ci-existing-config.yaml
-      - name: Build ESP32 firmware
-        run: esphome compile ci-powerpal.yaml
+      - name: Build ESP32 firmware and reject PalPulse compiler warnings
+        shell: bash
+        run: |
+          set -o pipefail
+          esphome compile ci-powerpal.yaml 2>&1 | tee /tmp/palpulse-build.log
+          if grep -E 'powerpal_ble/[^[:space:]]+:[0-9]+:[0-9]+: warning:' /tmp/palpulse-build.log; then
+            echo "::error::PalPulse component emitted compiler warnings"
+            exit 1
+          fi
