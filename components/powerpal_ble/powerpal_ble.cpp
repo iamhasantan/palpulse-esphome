@@ -26,7 +26,7 @@ ESPBTUUID characteristic(uint16_t slot) {
 }  // namespace
 
 void PalPulse::setup() {
-  this->counter_.device_key = accounting::legacy_device_key(this->parent()->address_str());
+  this->counter_.device_key = accounting::meter_identity_hash(this->parent()->address_str());
   this->counter_.pulses_per_kwh = this->pulses_per_kwh_;
   this->load_checkpoint_();
 }

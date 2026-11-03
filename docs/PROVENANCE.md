@@ -1,50 +1,52 @@
-# Code provenance and licensing
+# Source provenance and licence boundaries
 
-PalPulse's BLE transport and ESPHome component integration are new code written
-for this repository. They do not copy the C++ transport implementation of
-WeekendWarrior1, Pento or Gurrier.
+PalPulse's BLE transport, ESPHome sensor integration and timestamped event
+sender are independent project implementations. No C++ transport or ESPHome
+code-generation modules from third-party Powerpal integrations were imported.
 
-The Powerpal BLE UUIDs and packet layouts describe a device protocol. Those
-facts were checked against hardware observations recorded during the
-FreshPowerpal project, and independently available technical references.
-Protocol compatibility necessarily uses those same UUIDs and numeric encodings.
+## Protocol facts and independent implementation
 
-## Reused original FreshPowerpal work
+The UUIDs and binary packet formats identify the physical Powerpal BLE
+protocol. Reusing these necessary protocol facts does not entail copying a
+particular implementation. The original implementation here uses ESPHome and
+ESP-IDF's documented interfaces.
 
-The helper algorithms in `accumulator.h` are adapted from the newly developed
-FreshPowerpal `measurement_math.h` (PR #1), `energy_checkpoint.h` (PRs #2–3).
-They preserve the original FreshPowerpal checkpoint layout, key derivation and
-measurement semantics for compatibility. Packet decoding concepts in `wire.h`
-are informed by FreshPowerpal's original `ble_packet.h` (PR #8), but use a new
-interface and implementation.
+Public protocol research by WeekendWarrior1, Pento, Gurrier and muneeb1990
+informed earlier experiments. Their names are acknowledged as historical
+research contributors, **not** as source-code contributors to PalPulse.
 
-- [FreshPowerpal PR #1](https://github.com/iamhasantan/freshpowerpal-esphome/pull/1)
-- [FreshPowerpal PR #2](https://github.com/iamhasantan/freshpowerpal-esphome/pull/2)
-- [FreshPowerpal PR #3](https://github.com/iamhasantan/freshpowerpal-esphome/pull/3)
-- [FreshPowerpal PR #8](https://github.com/iamhasantan/freshpowerpal-esphome/pull/8)
+## Earlier original engineering work
 
-The FreshPowerpal repository has an MIT LICENSE, but its *inherited* portions
-from Pento/WeekendWarrior1 have unresolved historical GPL provenance. For this
-reason the inherited transport and code-generation implementation have **not**
-been imported.
+The timestamped energy calculations and compatible NVS v1 checkpoint were
+originally authored during the repository owner's earlier prototype, then
+adapted and refined in PalPulse. They were not copied from the third-party
+transport implementations cited above.
 
-## Historical research attribution
+The original development history remains available for auditing:
+- [Earlier measurement calculation PR #1](https://github.com/iamhasantan/freshpowerpal-esphome/pull/1)
+- [Earlier checkpoint PR #2](https://github.com/iamhasantan/freshpowerpal-esphome/pull/2)
+- [Earlier checkpoint PR #3](https://github.com/iamhasantan/freshpowerpal-esphome/pull/3)
+- [Earlier packet parsing PR #8](https://github.com/iamhasantan/freshpowerpal-esphome/pull/8)
 
-- WeekendWarrior1: original Powerpal ESPHome work and protocol discoveries.
-- Pento/Gary Pendergast: standalone external-component implementation and
-  subsequent protocol and compatibility research.
-- Gurrier and muneeb1990: other prior Powerpal BLE implementations and research.
+Those links establish provenance for the project's own earlier work and
+must not be interpreted as an import of the older repository's inherited BLE
+implementation. The new BLE transport was built separately.
 
-In particular, Gurrier's implementation is GPLv3. No Gurrier source code is
-included in PalPulse.
+## Binary compatibility that cannot be renamed casually
 
-## Licence distinction
+Firmware preserves the existing NVS namespace and `checkpoint` key, v1 40-byte
+layout, FPP1 magic, and meter identity hash so that deployed devices can read
+their previously saved pulse counts. This is a compatibility contract, not
+a project name or current software dependency. Changing it requires a tested
+data migration and an explicit operator decision. **Never reset NVS to rebrand
+a device.**
 
-The original source authored for PalPulse is offered under MIT. This does not
-claim that a *compiled ESPHome firmware image* is MIT-only: ESPHome's own C++
-runtime and linked dependencies have their own licences and distribution
-requirements. Reusing the old FreshPowerpal v1 checkpoint is a data-format
-compatibility choice, not an attempt to relicense inherited transport code.
+## Licence status
 
-This is an engineering provenance record, not a legal opinion. Any future
-third-party source import requires an explicit licence and provenance review.
+Original PalPulse source code is offered under MIT. The linked ESPHome/ESP-IDF
+firmware contains third-party dependencies with separate licences and possible
+distribution requirements; MIT for this repository does not imply the entire
+compiled firmware is MIT-only.
+
+Third-party reuse requires a separate licence review. This provenance
+record states implementation history, not a legal opinion.

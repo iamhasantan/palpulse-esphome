@@ -10,7 +10,8 @@
 
 ## Hardware validation before merge
 
-Run on a **spare ESP32**, keeping production FreshPowerpal firmware operational.
+Use a **spare ESP32** where possible; preserve a backup of your current working
+firmware and its NVS checkpoint before any further OTA changes.
 Record the commit SHA, YAML, raw Powerpal BLE logs, initial total pulses, and
 Home Assistant raw sensor states. Preserve NVS and back up configuration.
 

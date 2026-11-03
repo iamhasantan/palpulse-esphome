@@ -3,15 +3,16 @@
 An independent **Powerpal BLE** external component for ESPHome and Home Assistant.
 Runs locally on ESP32 with **ESP-IDF**. No Powerpal cloud dependency.
 
-**Status: experimental.** Source is in a draft PR; the component has not been
-validated on Powerpal hardware. Do not replace production firmware until hardware
-and Home Assistant statistics checks have passed.
+**Status: experimental.** The component has paired with a physical Powerpal,
+delivered live sensor readings and replayed measurements. Extended operation,
+restart recovery and Home Assistant historical statistics imports remain
+under test. Keep a backup of working firmware and the existing NVS checkpoint.
 
 ## Features
 
 - Direct Powerpal BLE pairing, characteristic discovery and notifications
 - Timestamp-correct watts, native-minute historical replay and live pulse watts
-- Versioned, per-meter NVS checkpoint compatible with FreshPowerpal v1
+- Versioned per-meter NVS checkpoint with backwards-compatible v1 recovery
 - Duplicate/out-of-order rejection, bounded catch-up and conservative daily totals
 - Cumulative energy, daily energy, battery and watts as ordinary ESPHome sensors
 - C++ unit tests, sanitizers and an ESPHome 2026.10.2 ESP-IDF build workflow
@@ -106,10 +107,11 @@ Existing `powerpal_ble` YAML configuration keys remain supported:
 The old `log_api_key: true` option is intentionally rejected: cloud
 API credentials must never be printed by the component.
 
-### Legacy NVS checkpoint
+### NVS checkpoint compatibility
 
-PalPulse uses the FreshPowerpal NVS namespace `freshpowerpal`, key
-`checkpoint` and v1 40-byte FPP1 payload. It validates meter identity,
+PalPulse retains the existing NVS namespace and `checkpoint` key along with
+the 40-byte v1 checkpoint format. These on-device identifiers remain unchanged
+to protect previously recorded energy totals. It validates meter identity,
 calibration, magic and schema version. If a checkpoint is incompatible, it
 leaves the existing NVS data untouched and **withholds updated total energy**.
 
@@ -143,10 +145,12 @@ and [changelog](CHANGELOG.md).
 
 ## Credit and licence
 
-PalPulse credits earlier Powerpal protocol research by WeekendWarrior1,
-Gary Pendergast/Pento, Gurrier and muneeb1990 without importing their GPL-
-questionable transport implementations. FreshPowerpal's **new, original**
-measurement and checkpoint helpers are adapted with attribution.
+PalPulse's BLE client, ESPHome integration and history-event sender were
+implemented independently for this project, not copied from third-party BLE
+integrations. Measurement and checkpoint algorithms were developed as original
+work in an earlier prototype and refined here. Their development history is
+recorded in [PROVENANCE.md](docs/PROVENANCE.md), alongside appropriate credit
+for publicly documented Powerpal protocol research.
 
 Source is offered under [MIT](LICENSE). Compiled ESPHome firmware also contains
 third-party runtime dependencies and may have additional GPL obligations.

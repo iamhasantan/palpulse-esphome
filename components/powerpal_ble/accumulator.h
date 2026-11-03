@@ -1,9 +1,9 @@
 #pragma once
 
-// Layout-compatible with the original FreshPowerpal v1 checkpoint.
-// Adapted from the independently developed energy_checkpoint.h and
-// measurement_math.h in FreshPowerpal PRs #1-#3, with acknowledgement
-// in docs/PROVENANCE.md. Do not change fields/order without migration tests.
+// Layout-compatible with the previously deployed v1 checkpoint.
+// Measurement and checkpoint helper algorithms were originally authored
+// during an earlier in-house prototype. See docs/PROVENANCE.md for audit
+// links. Do not change the serialized layout without migration tests.
 #include <cstdint>
 #include <limits>
 
@@ -27,8 +27,8 @@ struct Checkpoint {
 
 static_assert(sizeof(Checkpoint) == 40, "Legacy checkpoint layout changed");
 
-inline uint32_t legacy_device_key(const char *mac) {
-  // Standard FNV-1a 32-bit. Required to read existing FreshPowerpal NVS.
+inline uint32_t meter_identity_hash(const char *mac) {
+  // Standard FNV-1a 32-bit. Required for existing NVS identity compatibility.
   uint32_t hash = 2166136261u;
   if (mac) {
     for (const auto *p = reinterpret_cast<const unsigned char *>(mac); *p; ++p) {

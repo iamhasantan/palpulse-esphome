@@ -7,7 +7,7 @@ using namespace esphome::powerpal_ble::accounting;
 
 int main() {
   Checkpoint s{};
-  s.device_key = legacy_device_key("AA:BB:CC:DD:EE:FF");
+  s.device_key = meter_identity_hash("AA:BB:CC:DD:EE:FF");
   s.pulses_per_kwh = 3200.0f;
   assert(compatible(s, s.device_key, 3200.0f));
   assert(!compatible(s, s.device_key, 1000.0f));

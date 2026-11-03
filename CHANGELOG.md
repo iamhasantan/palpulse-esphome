@@ -4,7 +4,7 @@
 
 - Build a separate Powerpal BLE ESPHome component with newly written
   connection, pairing, notification and historical streaming handlers.
-- Adapt original FreshPowerpal timestamp mathematics, native-minute replay,
+- Preserve timestamp-accurate mathematics and native-minute replay developed as original work in an earlier prototype,
   NVS v1 checkpoints and defensive packet decoding, with explicit credits.
 - Preserve existing ESPHome sensor options, entity naming and checkpoint format
   where practical; protect incompatible NVS data from being overwritten.
