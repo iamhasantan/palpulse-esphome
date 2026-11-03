@@ -2,6 +2,7 @@
 
 #ifdef USE_ESP32
 #include "esphome/core/log.h"
+#include "esphome/core/hal.h"
 #include <esp_err.h>
 #include <nvs_flash.h>
 #include <cmath>
@@ -30,11 +31,57 @@ void PalPulse::setup() {
   this->load_checkpoint_();
 }
 
+void PalPulse::queue_history_record_(uint32_t timestamp, uint16_t pulses, uint64_t total) {
+  if (!this->history_events_enabled_)
+    return;
+  if (this->history_count_ == HISTORY_QUEUE_SIZE) {
+    ESP_LOGW(TAG, "Timestamp history event queue full; dropping record %u. "
+                  "Companion importer will refuse incomplete hours", timestamp);
+    return;
+  }
+  auto &slot = this->history_queue_[this->history_tail_];
+  slot.timestamp = timestamp;
+  slot.pulses = pulses;
+  slot.total_pulses = total;
+  this->history_tail_ = (this->history_tail_ + 1) % HISTORY_QUEUE_SIZE;
+  ++this->history_count_;
+}
+
+void PalPulse::loop() {
+  if (!this->history_events_enabled_ || this->history_count_ == 0)
+    return;
+#ifdef USE_API_HOMEASSISTANT_SERVICES
+  if (!this->is_connected() || this->checkpoint_dirty_)
+    return;
+  const uint32_t now = millis();
+  if (now - this->last_history_emit_ms_ < 120)
+    return;
+  const QueuedRecord &record = this->history_queue_[this->history_head_];
+  this->fire_homeassistant_event("esphome.palpulse_record", {
+      {"meter", this->parent()->address_str()},
+      {"timestamp", std::to_string(record.timestamp)},
+      {"pulses", std::to_string(record.pulses)},
+      {"total_pulses", std::to_string(record.total_pulses)},
+      {"pulses_per_kwh", std::to_string(this->pulses_per_kwh_)},
+  });
+  this->history_head_ = (this->history_head_ + 1) % HISTORY_QUEUE_SIZE;
+  --this->history_count_;
+  this->last_history_emit_ms_ = now;
+#else
+  if (!this->history_sender_warned_) {
+    ESP_LOGW(TAG, "Timestamped history disabled: add api.homeassistant_services: true "
+                  "and allow Home Assistant actions for the ESPHome node");
+    this->history_sender_warned_ = true;
+  }
+#endif
+}
+
 void PalPulse::dump_config() {
   ESP_LOGCONFIG(TAG, "PalPulse Powerpal BLE");
   ESP_LOGCONFIG(TAG, "  Local BLE meter: %s", this->parent()->address_str());
   ESP_LOGCONFIG(TAG, "  Reading interval: %u minutes", this->interval_minutes_);
   ESP_LOGCONFIG(TAG, "  Live pulse updates: %s", this->wants_live_power_ ? "enabled" : "disabled");
+  ESP_LOGCONFIG(TAG, "  Timestamped HA events: %s", this->history_events_enabled_ ? "enabled" : "disabled");
   LOG_SENSOR("  ", "Power", this->power_);
   LOG_SENSOR("  ", "Total energy", this->energy_);
   LOG_SENSOR("  ", "Daily energy", this->daily_);
@@ -327,6 +374,7 @@ void PalPulse::handle_record_(const uint8_t *bytes, size_t length) {
                           this->local_day_(input.recorded_at)))
     return;
   this->checkpoint_dirty_ = true;
+  this->queue_history_record_(input.recorded_at, input.pulse_count, this->counter_.total_pulses);
   ++this->records_seen_;
   if (!this->live_subscribed_ && power.has_value && same_phase && this->power_)
     this->power_->publish_state(power.watts);

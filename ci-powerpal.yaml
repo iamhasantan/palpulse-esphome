@@ -10,6 +10,7 @@ wifi:
   password: "ci-only-test-password"
 logger:
 api:
+  homeassistant_services: true
 esp32_ble_tracker:
 ble_client:
   - mac_address: "AA:BB:CC:DD:EE:FF"
@@ -30,6 +31,7 @@ sensor:
     pulses_per_kwh: 3200
     time_id: homeassistant_time
     live_power: true
+    history_events: true
     power:
       name: "Powerpal Power"
     energy:

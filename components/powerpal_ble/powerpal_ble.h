@@ -7,6 +7,9 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/core/component.h"
 #include "esphome/core/defines.h"
+#ifdef USE_API
+#include "esphome/components/api/custom_api_device.h"
+#endif
 
 #ifdef USE_TIME
 #include "esphome/components/time/real_time_clock.h"
@@ -15,15 +18,22 @@
 #ifdef USE_ESP32
 #include <esp_gattc_api.h>
 #include <nvs.h>
+#include <array>
 #include <cstdint>
+#include <cstddef>
 
 namespace esphome::powerpal_ble {
 
 namespace espbt = esphome::esp32_ble_tracker;
 
-class PalPulse : public Component, public ble_client::BLEClientNode {
+class PalPulse : public Component, public ble_client::BLEClientNode
+#ifdef USE_API
+    , public api::CustomAPIDevice
+#endif
+{
  public:
   void setup() override;
+  void loop() override;
   void dump_config() override;
   void gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t interface,
                            esp_ble_gattc_cb_param_t *params) override;
@@ -33,6 +43,7 @@ class PalPulse : public Component, public ble_client::BLEClientNode {
   void set_pulses_per_kwh(float value) { pulses_per_kwh_ = value; }
   void set_notification_interval(uint8_t minutes) { interval_minutes_ = minutes; }
   void set_live_power(bool enabled) { wants_live_power_ = enabled; }
+  void set_history_events(bool enabled) { history_events_enabled_ = enabled; }
   void set_power_sensor(sensor::Sensor *sensor) { power_ = sensor; }
   void set_energy_sensor(sensor::Sensor *sensor) { energy_ = sensor; }
   void set_daily_energy_sensor(sensor::Sensor *sensor) { daily_ = sensor; }
@@ -76,6 +87,15 @@ class PalPulse : public Component, public ble_client::BLEClientNode {
   bool save_checkpoint_();
   void publish_energy_(bool caught_up);
   uint32_t local_day_(uint32_t timestamp) const;
+  // Native-API event transport is best-effort. Only emit records after their
+  // matching cumulative counter has been durably committed to NVS.
+  struct QueuedRecord {
+    uint64_t total_pulses{0};
+    uint32_t timestamp{0};
+    uint16_t pulses{0};
+  };
+  static constexpr size_t HISTORY_QUEUE_SIZE = 512;
+  void queue_history_record_(uint32_t timestamp, uint16_t pulses, uint64_t total);
 
   Phase phase_{Phase::OFFLINE};
   Request request_{Request::NONE};
@@ -84,6 +104,13 @@ class PalPulse : public Component, public ble_client::BLEClientNode {
   float pulses_per_kwh_{0.0f};
   uint8_t interval_minutes_{5};
   bool wants_live_power_{false};
+  bool history_events_enabled_{false};
+  bool history_sender_warned_{false};
+  std::array<QueuedRecord, HISTORY_QUEUE_SIZE> history_queue_{};
+  size_t history_head_{0};
+  size_t history_tail_{0};
+  size_t history_count_{0};
+  uint32_t last_history_emit_ms_{0};
   bool live_subscribed_{false};
   bool clock_set_{false};
   bool pairing_pending_{false};

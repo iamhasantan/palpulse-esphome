@@ -28,3 +28,16 @@ Home Assistant raw sensor states. Preserve NVS and back up configuration.
 
 A passing CI build is **not** a release or hardware safety approval. Obtain
 explicit owner approval before merging or replacing production firmware.
+
+## HACS companion acceptance tests
+
+- Enable `api.homeassistant_services: true` plus `history_events: true` and
+  allow Home Assistant actions for the ESPHome device.
+- Verify `esphome.palpulse_record` events contain UTC timestamps, exact pulses,
+  cumulative pulse counts, the meter MAC and calibration. No credentials.
+- Test one complete UTC hour with 60 native-minute records, then confirm the
+  external statistic `palpulse:powerpal_<mac>_energy` has the correct hour.
+- Shut down Home Assistant, allow buffered Powerpal consumption, restart, and
+  verify missing records **block** statistics imports instead of causing a spike.
+- Exercise device disconnect, BLE reconnect, reboot and repeated record streams.
+  Ensure old sensor statistics are not simultaneously selected in Energy.

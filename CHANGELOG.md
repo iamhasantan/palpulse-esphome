@@ -21,3 +21,8 @@
   powerpal-proxy YAML with non-secret sample values.
 
 **Status:** development. No hardware validation or production release yet.
+
+- Add opt-in `history_events: true` record events carrying Powerpal's original
+  UTC timestamp, pulse count and cumulative pulses for the HACS companion.
+- Stage timestamped events behind successful NVS commits and pace emission
+  through a bounded RAM queue; existing sensor and energy accounting stay unchanged.

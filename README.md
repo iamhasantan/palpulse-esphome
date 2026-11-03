@@ -63,6 +63,41 @@ values. It is exclusively for validation, not direct installation.
 
 Replace the branch ref with a reviewed commit SHA when testing firmware.
 
+## HACS companion: timestamped historical energy
+
+The optional [PalPulse Home Assistant](https://github.com/iamhasantan/palpulse-homeassistant)
+HACS integration can import complete native-minute record sequences as correctly
+timestamped, hourly **external** energy statistics. It does not overwrite the
+ordinary Total Energy sensor or Home Assistant recorder history.
+
+To enable the experimental data path, add to the **existing** YAML blocks:
+
+```yaml
+api:
+  homeassistant_services: true  # retain your existing encryption and reboot options
+
+sensor:
+  - platform: powerpal_ble
+    history_events: true        # retain all your existing sensor options
+```
+
+Within the Home Assistant ESPHome device's configuration, enable
+**Allow the device to perform Home Assistant actions** or events will not arrive.
+The event name is `esphome.palpulse_record`. Each event contains
+`meter`, original `timestamp`, `pulses`, `total_pulses`, and
+`pulses_per_kwh`. No pairing code or cloud API key is transmitted.
+
+The sender is **opt-in** and uses a bounded 512-record RAM queue, paced at about
+8 events/second. It emits only after NVS checkpoint persistence succeeds.
+These native API events are **not acknowledged**. Events can still be lost if
+Home Assistant is disconnected or its queue cannot keep up; the HACS
+importer refuses incomplete hours instead of inventing consumption. That makes
+this beta deliberately conservative, not a lossless history transport.
+
+Do **not** select both existing Powerpal Total Energy and the new external
+statistic as two grid consumption sources. Test the new external statistic
+independently before switching your Energy dashboard.
+
 ## Compatibility
 
 Existing `powerpal_ble` YAML configuration keys remain supported:
