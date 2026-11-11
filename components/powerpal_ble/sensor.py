@@ -30,6 +30,7 @@ CONF_ENERGY = "energy"
 CONF_DAILY_ENERGY = "daily_energy"
 CONF_LOG_API_KEY = "log_api_key"
 CONF_HISTORY_EVENTS = "history_events"
+CONF_RELIABLE_HISTORY = "reliable_history"
 
 palpulse_ns = cg.esphome_ns.namespace("powerpal_ble")
 PalPulse = palpulse_ns.class_("PalPulse", cg.Component, ble_client.BLEClientNode)
@@ -44,6 +45,8 @@ def _validate(config):
         raise cv.Invalid("live_power: true requires a power sensor")
     if CONF_LIVE_POWER not in config:
         config[CONF_LIVE_POWER] = CONF_POWER in config
+    if config.get(CONF_RELIABLE_HISTORY) and not config.get(CONF_HISTORY_EVENTS):
+        raise cv.Invalid("reliable_history requires history_events: true")
     return config
 
 
@@ -57,6 +60,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_TIME_ID): cv.use_id(time.RealTimeClock),
             cv.Optional(CONF_LIVE_POWER): cv.boolean,
             cv.Optional(CONF_HISTORY_EVENTS, default=False): cv.boolean,
+            cv.Optional(CONF_RELIABLE_HISTORY, default=False): cv.boolean,
             cv.Optional(CONF_LOG_API_KEY, default=False): cv.boolean,
             cv.Optional(CONF_POWER): sensor.sensor_schema(
                 unit_of_measurement=UNIT_WATT,
@@ -98,6 +102,7 @@ async def to_code(config):
     cg.add(device.set_notification_interval(config[CONF_NOTIFICATION_INTERVAL]))
     cg.add(device.set_live_power(config[CONF_LIVE_POWER]))
     cg.add(device.set_history_events(config[CONF_HISTORY_EVENTS]))
+    cg.add(device.set_reliable_history(config[CONF_RELIABLE_HISTORY]))
     if CONF_TIME_ID in config:
         cg.add(device.set_time(await cg.get_variable(config[CONF_TIME_ID])))
     for option, setter in (
