@@ -407,8 +407,25 @@ void PalPulse::handle_bounds_(const uint8_t *bytes, size_t length) {
     this->schedule_poll_(5000);
     return;
   }
+  if (this->reliable_history_enabled_) {
+    if (this->history_replay_fault_)
+      return;
+    if (this->history_count_) {
+      this->schedule_poll_(1000);
+      return; // Drain acknowledged history before requesting another batch.
+    }
+    if (this->history_ack_.timestamp &&
+        bounds.oldest > this->history_ack_.timestamp + 60) {
+      ESP_LOGE(TAG, "Meter buffer lost unacknowledged records; replay paused");
+      this->history_replay_fault_ = true;
+      return;
+    }
+    this->history_replay_total_ = this->history_ack_.total_pulses;
+  }
+  const uint32_t cursor = this->reliable_history_enabled_
+      ? this->history_ack_.timestamp : this->counter_.last_timestamp;
   const auto window = accounting::next_window(bounds.oldest, bounds.newest,
-                                               this->counter_.last_timestamp,
+                                               cursor,
                                                uint32_t(this->interval_minutes_) * 60);
   if (!window.valid) {
     this->schedule_poll_(uint32_t(this->interval_minutes_) * 60000);
@@ -447,6 +464,32 @@ void PalPulse::handle_record_(const uint8_t *bytes, size_t length) {
     ESP_LOGW(TAG, "Dropped non-native or out-of-window record at %" PRIu32, input.recorded_at);
     return;
   }
+  if (this->reliable_history_enabled_ && this->history_replay_fault_)
+    return;
+  if (this->reliable_history_enabled_ &&
+      input.recorded_at <= this->counter_.last_timestamp) {
+    if (input.recorded_at <= this->history_ack_.timestamp)
+      return;
+    this->history_replay_total_ += input.pulse_count;
+    if (input.recorded_at == this->counter_.last_timestamp &&
+        this->history_replay_total_ != this->counter_.total_pulses) {
+      ESP_LOGE(TAG, "Replay meter-counter mismatch; stopped rather than inventing energy");
+      this->history_replay_fault_ = true;
+      return;
+    }
+    this->queue_history_record_(
+        input.recorded_at, input.pulse_count, this->history_replay_total_);
+    ++this->records_seen_;
+    if (input.recorded_at == this->active_end_)
+      this->stream_complete_();
+    return;
+  }
+  if (this->reliable_history_enabled_ &&
+      this->history_replay_total_ != this->counter_.total_pulses) {
+    ESP_LOGE(TAG, "Replay cursor does not match live counter; history paused");
+    this->history_replay_fault_ = true;
+    return;
+  }
   const auto power = accounting::measure_power(input.recorded_at, this->counter_.last_timestamp,
                                                 input.pulse_count, this->pulses_per_kwh_);
   if (!power.is_new)
@@ -457,6 +500,8 @@ void PalPulse::handle_record_(const uint8_t *bytes, size_t length) {
   if (!accounting::apply(this->counter_, input.recorded_at, input.pulse_count,
                           this->local_day_(input.recorded_at)))
     return;
+  if (this->reliable_history_enabled_)
+    this->history_replay_total_ += input.pulse_count;
   this->checkpoint_dirty_ = true;
   this->queue_history_record_(input.recorded_at, input.pulse_count, this->counter_.total_pulses);
   ++this->records_seen_;
