@@ -229,7 +229,7 @@ bool PalPulse::save_history_ack_() {
   return err == ESP_OK;
 }
 
-void PalPulse::ack_history_(int timestamp) {
+void PalPulse::ack_history_(int32_t timestamp) {
   if (!this->reliable_history_enabled_ || timestamp <= 0 || this->history_count_ == 0)
     return;
   const auto record = this->history_queue_[this->history_head_];
