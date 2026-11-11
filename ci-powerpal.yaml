@@ -11,6 +11,7 @@ wifi:
 logger:
 api:
   homeassistant_services: true
+  custom_services: true
 esp32_ble_tracker:
 ble_client:
   - mac_address: "AA:BB:CC:DD:EE:FF"
@@ -32,6 +33,7 @@ sensor:
     time_id: homeassistant_time
     live_power: true
     history_events: true
+    reliable_history: true
     power:
       name: "Powerpal Power"
     energy:
