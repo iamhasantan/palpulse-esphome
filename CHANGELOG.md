@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+## 0.2b1
+
+### What's Changed
+
+- Add **opt-in acknowledged history** with a native-API action unique to each Powerpal meter. Events remain queued until Home Assistant confirms a durable write.
+- Save the acknowledged timestamp and counter separately from the existing NVS v1 energy checkpoint. After restart, unconfirmed records can be replayed from the Powerpal buffer while they remain available.
+- Detect missing meter-buffer history or invalid replay-counter continuity and stop safely rather than inventing energy.
+- Give additional Powerpal meters their own NVS namespaces. Preserve existing compatible legacy checkpoints without erasing or rewriting them.
+- Add the `reliable_history: true` option and compile the matching ESPHome custom-services pathway in CI.
+- Refresh the public README and keep the detailed installation notes separately.
+
+### Before testing
+
+- **Experimental firmware.** Back up your ESPHome configuration and current NVS checkpoint. Do not reset NVS to install this build.
+- Acknowledged delivery requires PalPulse for Home Assistant **0.2b1**, `api.homeassistant_services: true`, `api.custom_services: true`, and the matching action configured in Home Assistant.
+- Legacy best-effort `history_events: true` still works without opting in.
+- Replay is limited by the Powerpal meter's own stored-history buffer. Real hardware reconnect and power-loss validation remain necessary.
+
+
 - Build a separate Powerpal BLE ESPHome component with newly written
   connection, pairing, notification and historical streaming handlers.
 - Preserve timestamp-accurate mathematics and native-minute replay developed as original work in an earlier prototype,
