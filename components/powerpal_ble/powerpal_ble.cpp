@@ -146,6 +146,66 @@ void PalPulse::load_checkpoint_() {
   this->publish_energy_(false);
 }
 
+void PalPulse::load_history_ack_() {
+  this->history_ack_.device_key = this->counter_.device_key;
+  this->history_ack_.timestamp = this->counter_.last_timestamp;
+  this->history_ack_.total_pulses = this->counter_.total_pulses;
+  if (!this->nvs_ready_) {
+    this->history_replay_fault_ = true;
+    return;
+  }
+  HistoryAck saved{};
+  size_t bytes = sizeof(saved);
+  const auto err = nvs_get_blob(this->nvs_, "history_ack_v2", &saved, &bytes);
+  if (err == ESP_ERR_NVS_NOT_FOUND) {
+    // For an existing v1 checkpoint, begin acknowledgments at the last
+    // trusted counter position. Never erase or modify the v1 checkpoint.
+    if (!this->save_history_ack_())
+      this->history_replay_fault_ = true;
+    return;
+  }
+  if (err != ESP_OK || bytes != sizeof(saved) ||
+      saved.magic != this->history_ack_.magic || saved.version != 1 ||
+      saved.device_key != this->counter_.device_key ||
+      saved.timestamp > this->counter_.last_timestamp ||
+      saved.total_pulses > this->counter_.total_pulses) {
+    ESP_LOGE(TAG, "History acknowledgement cursor incompatible; replay paused");
+    this->history_replay_fault_ = true;
+    return;
+  }
+  this->history_ack_ = saved;
+  ESP_LOGI(TAG, "Confirmed history cursor %" PRIu32, saved.timestamp);
+}
+
+bool PalPulse::save_history_ack_() {
+  if (!this->nvs_ready_)
+    return false;
+  auto err = nvs_set_blob(this->nvs_, "history_ack_v2", &this->history_ack_, sizeof(this->history_ack_));
+  if (err == ESP_OK)
+    err = nvs_commit(this->nvs_);
+  if (err != ESP_OK)
+    ESP_LOGE(TAG, "Could not persist history acknowledgement (%d)", err);
+  return err == ESP_OK;
+}
+
+void PalPulse::ack_history_(int timestamp) {
+  if (!this->reliable_history_enabled_ || timestamp <= 0 || this->history_count_ == 0)
+    return;
+  const auto record = this->history_queue_[this->history_head_];
+  if (record.timestamp != static_cast<uint32_t>(timestamp))
+    return;  // Never advance beyond an unconfirmed or out-of-order record.
+  const auto previous = this->history_ack_;
+  this->history_ack_.timestamp = record.timestamp;
+  this->history_ack_.total_pulses = record.total_pulses;
+  if (!this->save_history_ack_()) {
+    this->history_ack_ = previous;
+    return;
+  }
+  this->history_head_ = (this->history_head_ + 1) % HISTORY_QUEUE_SIZE;
+  --this->history_count_;
+  this->last_history_emit_ms_ = 0;
+}
+
 bool PalPulse::save_checkpoint_() {
   if (!this->checkpoint_dirty_)
     return this->nvs_ready_;
