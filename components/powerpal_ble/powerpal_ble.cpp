@@ -32,7 +32,11 @@ void PalPulse::setup() {
   if (this->reliable_history_enabled_) {
     this->load_history_ack_();
 #ifdef USE_API_CUSTOM_SERVICES
-    this->register_service(&PalPulse::ack_history_, "palpulse_ack", {"timestamp"});
+    char service_name[32]{};
+    snprintf(service_name, sizeof(service_name), "palpulse_ack_%08" PRIx32,
+             this->counter_.device_key);
+    this->register_service(&PalPulse::ack_history_, service_name, {"timestamp"});
+    ESP_LOGI(TAG, "History ACK action suffix: %s", service_name);
 #else
     ESP_LOGE(TAG, "Reliable history requires api.custom_services: true");
     this->history_replay_fault_ = true;
