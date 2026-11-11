@@ -1,0 +1,70 @@
+name: Publish PalPulse ESPHome preview
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - VERSION
+      - CHANGELOG.md
+      - .github/workflows/release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: palpulse-esphome-preview-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Verify native tests and ESPHome firmware
+        run: |
+          set -euo pipefail
+          make test
+          python -m pip install -r requirements-test.txt
+          esphome config ci-powerpal.yaml
+          esphome compile ci-powerpal.yaml
+      - name: Validate version and prepare notes
+        id: version
+        run: |
+          set -euo pipefail
+          version="$(tr -d '\r\n' < VERSION)"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+b[0-9]+$ ]]; then
+            echo "::error::Expected preview version, e.g. 0.2b1"
+            exit 1
+          fi
+          awk -v tag="$version" '
+            $0 == "## " tag {show=1; next}
+            show && /^## / {exit}
+            show {print}
+          ' CHANGELOG.md > "$RUNNER_TEMP/release-notes.md"
+          if ! grep -q "What's Changed" "$RUNNER_TEMP/release-notes.md"; then
+            echo "::error::No matching release notes"
+            exit 1
+          fi
+          echo "tag=$version" >> "$GITHUB_OUTPUT"
+      - name: Publish source release for pinned external_components
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          title="PalPulse for ESPHome $TAG (experimental preview)"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$title" \
+              --notes-file "$RUNNER_TEMP/release-notes.md" --latest
+          else
+            gh release create "$TAG" --target "$GITHUB_SHA" \
+              --title "$title" --notes-file "$RUNNER_TEMP/release-notes.md" --latest
+          fi
