@@ -132,10 +132,34 @@ void PalPulse::load_checkpoint_() {
     ESP_LOGI(TAG, "No existing checkpoint; first successful range seeds meter totals");
     return;
   }
+  if (err == ESP_OK && size == sizeof(candidate) &&
+      candidate.device_key != this->counter_.device_key &&
+      candidate.magic == accounting::CHECKPOINT_MAGIC &&
+      candidate.version == accounting::CHECKPOINT_VERSION) {
+    // Another meter already owns the original namespace. Do not overwrite it.
+    // Use a distinct namespace for this meter while retaining old deployments.
+    nvs_close(this->nvs_);
+    this->nvs_ = 0;
+    char namespace_name[16]{};
+    snprintf(namespace_name, sizeof(namespace_name), "pp%08" PRIx32,
+             this->counter_.device_key);
+    err = nvs_open(namespace_name, NVS_READWRITE, &this->nvs_);
+    if (err != ESP_OK) {
+      ESP_LOGE(TAG, "Could not open per-meter NVS namespace (%d)", err);
+      this->nvs_ready_ = false;
+      return;
+    }
+    size = sizeof(candidate);
+    err = nvs_get_blob(this->nvs_, "checkpoint", &candidate, &size);
+    if (err == ESP_ERR_NVS_NOT_FOUND) {
+      ESP_LOGI(TAG, "Independent NVS checkpoint for additional meter created");
+      return;
+    }
+  }
   if (err != ESP_OK || size != sizeof(candidate) ||
       !accounting::compatible(candidate, this->counter_.device_key, this->pulses_per_kwh_)) {
-    ESP_LOGE(TAG, "Existing checkpoint invalid or not for this meter/calibration; leaving it untouched");
-    this->nvs_ready_ = false;  // Never overwrite an incompatible existing checkpoint.
+    ESP_LOGE(TAG, "Existing checkpoint incompatible with this meter/calibration; refusing overwrite");
+    this->nvs_ready_ = false;
     nvs_close(this->nvs_);
     this->nvs_ = 0;
     return;
