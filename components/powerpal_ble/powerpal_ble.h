@@ -104,7 +104,7 @@ class PalPulse : public Component, public ble_client::BLEClientNode
     uint64_t total_pulses{0};
   };
   void queue_history_record_(uint32_t timestamp, uint16_t pulses, uint64_t total);
-  void ack_history_(int timestamp);
+  void ack_history_(int32_t timestamp);
   bool save_history_ack_();
   void load_history_ack_();
 
