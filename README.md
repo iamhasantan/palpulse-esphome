@@ -61,7 +61,7 @@ sensor:
     reliable_history: true
 ```
 
-Keep the rest of your existing settings. Under Home Assistant's ESPHome device options, allow the device to perform Home Assistant actions. In the PalPulse integration's **History delivery and acknowledgments** settings, enter your device's action, for example `esphome.powerpal_proxy_palpulse_ack`. Confirm the exact action name shown by your ESPHome device.
+Keep the rest of your existing settings. Under Home Assistant's ESPHome device options, allow the device to perform Home Assistant actions. In the PalPulse integration's **History delivery and acknowledgments** settings, enter your device's action, for example `esphome.powerpal_proxy_palpulse_ack_1a2b3c4d`. Each meter registers its own action with an eight-character meter hash suffix. Confirm the **actual** action name in Home Assistant, and use that rather than the example.
 
 This is **not an unlimited archive**. Recovery still depends on readings remaining in the Powerpal's own buffer. If the meter has discarded them, PalPulse refuses to invent history. The old checkpoint is kept compatible with existing firmware.
 
