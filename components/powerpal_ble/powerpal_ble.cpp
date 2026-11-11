@@ -129,8 +129,25 @@ void PalPulse::load_checkpoint_() {
   size_t size = sizeof(candidate);
   err = nvs_get_blob(this->nvs_, "checkpoint", &candidate, &size);
   if (err == ESP_ERR_NVS_NOT_FOUND) {
-    ESP_LOGI(TAG, "No existing checkpoint; first successful range seeds meter totals");
-    return;
+    // New devices use per-meter NVS from the outset. The original namespace
+    // remains reserved for legacy checkpoints so two new meters never collide.
+    nvs_close(this->nvs_);
+    this->nvs_ = 0;
+    char namespace_name[16]{};
+    snprintf(namespace_name, sizeof(namespace_name), "pp%08" PRIx32,
+             this->counter_.device_key);
+    err = nvs_open(namespace_name, NVS_READWRITE, &this->nvs_);
+    if (err != ESP_OK) {
+      ESP_LOGE(TAG, "Could not open per-meter NVS (%d)", err);
+      this->nvs_ready_ = false;
+      return;
+    }
+    size = sizeof(candidate);
+    err = nvs_get_blob(this->nvs_, "checkpoint", &candidate, &size);
+    if (err == ESP_ERR_NVS_NOT_FOUND) {
+      ESP_LOGI(TAG, "New per-meter checkpoint will start at recent readings");
+      return;
+    }
   }
   if (err == ESP_OK && size == sizeof(candidate) &&
       candidate.device_key != this->counter_.device_key &&
