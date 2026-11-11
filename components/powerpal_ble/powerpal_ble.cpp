@@ -29,11 +29,30 @@ void PalPulse::setup() {
   this->counter_.device_key = accounting::meter_identity_hash(this->parent()->address_str());
   this->counter_.pulses_per_kwh = this->pulses_per_kwh_;
   this->load_checkpoint_();
+  if (this->reliable_history_enabled_) {
+    this->load_history_ack_();
+#ifdef USE_API_CUSTOM_SERVICES
+    this->register_service(&PalPulse::ack_history_, "palpulse_ack", {"timestamp"});
+#else
+    ESP_LOGE(TAG, "Reliable history requires api.custom_services: true");
+    this->history_replay_fault_ = true;
+#endif
+  }
 }
 
 void PalPulse::queue_history_record_(uint32_t timestamp, uint16_t pulses, uint64_t total) {
-  if (!this->history_events_enabled_)
+  if (!this->history_events_enabled_ || this->history_replay_fault_)
     return;
+  if (this->reliable_history_enabled_) {
+    if (timestamp <= this->history_ack_.timestamp)
+      return;
+    if (this->history_count_ != 0) {
+      const auto &previous = this->history_queue_[
+          (this->history_tail_ + HISTORY_QUEUE_SIZE - 1) % HISTORY_QUEUE_SIZE];
+      if (timestamp <= previous.timestamp)
+        return;
+    }
+  }
   if (this->history_count_ == HISTORY_QUEUE_SIZE) {
     ESP_LOGW(TAG, "Timestamp history event queue full; dropping record %" PRIu32 ". "
                   "Companion importer will refuse incomplete hours", timestamp);
@@ -54,7 +73,7 @@ void PalPulse::loop() {
   if (!this->is_connected() || this->checkpoint_dirty_)
     return;
   const uint32_t now = millis();
-  if (now - this->last_history_emit_ms_ < 120)
+  if (now - this->last_history_emit_ms_ < (this->reliable_history_enabled_ ? 1000u : 120u))
     return;
   const QueuedRecord &record = this->history_queue_[this->history_head_];
   this->fire_homeassistant_event("esphome.palpulse_record", {
@@ -64,8 +83,12 @@ void PalPulse::loop() {
       {"total_pulses", std::to_string(record.total_pulses)},
       {"pulses_per_kwh", std::to_string(this->pulses_per_kwh_)},
   });
-  this->history_head_ = (this->history_head_ + 1) % HISTORY_QUEUE_SIZE;
-  --this->history_count_;
+  if (!this->reliable_history_enabled_) {
+    this->history_head_ = (this->history_head_ + 1) % HISTORY_QUEUE_SIZE;
+    --this->history_count_;
+  }
+  // Reliable mode retains the front event until Home Assistant confirms its
+  // per-meter durable ledger write through the registered native action.
   this->last_history_emit_ms_ = now;
 #else
   if (!this->history_sender_warned_) {
@@ -82,6 +105,7 @@ void PalPulse::dump_config() {
   ESP_LOGCONFIG(TAG, "  Reading interval: %u minutes", this->interval_minutes_);
   ESP_LOGCONFIG(TAG, "  Live pulse updates: %s", this->wants_live_power_ ? "enabled" : "disabled");
   ESP_LOGCONFIG(TAG, "  Timestamped HA events: %s", this->history_events_enabled_ ? "enabled" : "disabled");
+  ESP_LOGCONFIG(TAG, "  Confirmed event replay: %s", this->reliable_history_enabled_ ? "enabled" : "disabled");
   LOG_SENSOR("  ", "Power", this->power_);
   LOG_SENSOR("  ", "Total energy", this->energy_);
   LOG_SENSOR("  ", "Daily energy", this->daily_);
