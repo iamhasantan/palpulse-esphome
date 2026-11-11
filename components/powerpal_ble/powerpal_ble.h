@@ -44,6 +44,7 @@ class PalPulse : public Component, public ble_client::BLEClientNode
   void set_notification_interval(uint8_t minutes) { interval_minutes_ = minutes; }
   void set_live_power(bool enabled) { wants_live_power_ = enabled; }
   void set_history_events(bool enabled) { history_events_enabled_ = enabled; }
+  void set_reliable_history(bool enabled) { reliable_history_enabled_ = enabled; }
   void set_power_sensor(sensor::Sensor *sensor) { power_ = sensor; }
   void set_energy_sensor(sensor::Sensor *sensor) { energy_ = sensor; }
   void set_daily_energy_sensor(sensor::Sensor *sensor) { daily_ = sensor; }
@@ -95,7 +96,17 @@ class PalPulse : public Component, public ble_client::BLEClientNode
     uint16_t pulses{0};
   };
   static constexpr size_t HISTORY_QUEUE_SIZE = 512;
+  struct HistoryAck {
+    uint32_t magic{0x50413248u};  // PA2H
+    uint32_t version{1};
+    uint32_t device_key{0};
+    uint32_t timestamp{0};
+    uint64_t total_pulses{0};
+  };
   void queue_history_record_(uint32_t timestamp, uint16_t pulses, uint64_t total);
+  void ack_history_(int timestamp);
+  bool save_history_ack_();
+  void load_history_ack_();
 
   Phase phase_{Phase::OFFLINE};
   Request request_{Request::NONE};
@@ -105,6 +116,10 @@ class PalPulse : public Component, public ble_client::BLEClientNode
   uint8_t interval_minutes_{5};
   bool wants_live_power_{false};
   bool history_events_enabled_{false};
+  bool reliable_history_enabled_{false};
+  bool history_replay_fault_{false};
+  HistoryAck history_ack_{};
+  uint64_t history_replay_total_{0};
   bool history_sender_warned_{false};
   std::array<QueuedRecord, HISTORY_QUEUE_SIZE> history_queue_{};
   size_t history_head_{0};
