@@ -10,7 +10,7 @@ Use an ESP32 with ESP-IDF and ESPHome 2026.10.2 or newer. Add the component to y
 
 ```yaml
 external_components:
-  - source: github://iamhasantan/palpulse-esphome@0.2b3
+  - source: github://iamhasantan/palpulse-esphome@0.2b4
     components: [powerpal_ble]
 
 esp32_ble_tracker:
