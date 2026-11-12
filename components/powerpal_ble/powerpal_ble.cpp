@@ -37,6 +37,10 @@ void PalPulse::setup() {
              this->counter_.device_key);
     this->register_service(&PalPulse::ack_history_, service_name, {"timestamp"});
     ESP_LOGI(TAG, "History ACK action suffix: %s", service_name);
+    snprintf(service_name, sizeof(service_name), "palpulse_replay_%08" PRIx32,
+             this->counter_.device_key);
+    this->register_service(&PalPulse::replay_from_checkpoint_, service_name);
+    ESP_LOGI(TAG, "Safe replay action suffix: %s", service_name);
 #else
     ESP_LOGE(TAG, "Reliable history requires api.custom_services: true");
     this->history_replay_fault_ = true;
@@ -71,13 +75,25 @@ void PalPulse::queue_history_record_(uint32_t timestamp, uint16_t pulses, uint64
 }
 
 void PalPulse::loop() {
+  // Periodic read-only checkpoint report. It is useful even when no native
+  // measurements have arrived. Never report an unsaved cumulative checkpoint.
+#ifdef USE_API_HOMEASSISTANT_SERVICES
+  const uint32_t now = millis();
+  if (this->history_events_enabled_ && this->is_connected() &&
+      !this->checkpoint_dirty_ &&
+      (!this->last_checkpoint_report_ms_ ||
+       now - this->last_checkpoint_report_ms_ >= 60000u)) {
+    this->last_checkpoint_report_ms_ = now ? now : 1u;
+    this->publish_checkpoint_status_();
+  }
+#endif
   if (!this->history_events_enabled_ || this->history_count_ == 0)
     return;
 #ifdef USE_API_HOMEASSISTANT_SERVICES
   if (!this->is_connected() || this->checkpoint_dirty_)
     return;
-  const uint32_t now = millis();
-  if (now - this->last_history_emit_ms_ < (this->reliable_history_enabled_ ? 1000u : 120u))
+  const uint32_t emit_now = millis();
+  if (emit_now - this->last_history_emit_ms_ < (this->reliable_history_enabled_ ? 1000u : 120u))
     return;
   const QueuedRecord &record = this->history_queue_[this->history_head_];
   this->fire_homeassistant_event("esphome.palpulse_record", {
@@ -93,7 +109,7 @@ void PalPulse::loop() {
   }
   // Reliable mode retains the front event until Home Assistant confirms its
   // per-meter durable ledger write through the registered native action.
-  this->last_history_emit_ms_ = now;
+  this->last_history_emit_ms_ = emit_now;
 #else
   if (!this->history_sender_warned_) {
     ESP_LOGW(TAG, "Timestamped history disabled: add api.homeassistant_services: true "
@@ -101,6 +117,57 @@ void PalPulse::loop() {
     this->history_sender_warned_ = true;
   }
 #endif
+}
+
+void PalPulse::publish_checkpoint_status_() {
+#ifdef USE_API_HOMEASSISTANT_SERVICES
+  // Informational only. These values come from the saved local counter and
+  // the separate durable ACK cursor; HA must never treat this as a command
+  // to change a Recorder statistic or to overwrite the firmware NVS.
+  if (!this->history_events_enabled_ || !this->is_connected())
+    return;
+  this->fire_homeassistant_event("esphome.palpulse_checkpoint", {
+      {"meter", this->parent()->address_str()},
+      {"checkpoint_timestamp", std::to_string(this->counter_.last_timestamp)},
+      {"total_pulses", std::to_string(this->counter_.total_pulses)},
+      {"ack_timestamp", std::to_string(
+          this->reliable_history_enabled_ ? this->history_ack_.timestamp : 0u)},
+      {"ack_total_pulses", std::to_string(
+          this->reliable_history_enabled_ ? this->history_ack_.total_pulses : 0u)},
+      {"queue_size", std::to_string(this->history_count_)},
+      {"reliable_history", this->reliable_history_enabled_ ? "true" : "false"},
+      {"history_events", this->history_events_enabled_ ? "true" : "false"},
+      {"nvs_ready", this->nvs_ready_ ? "true" : "false"},
+      {"checkpoint_dirty", this->checkpoint_dirty_ ? "true" : "false"},
+      {"replay_fault", this->history_replay_fault_ ? "true" : "false"},
+      {"buffer_oldest", std::to_string(this->first_record_)},
+      {"buffer_newest", std::to_string(this->newest_record_)},
+  });
+#endif
+}
+
+void PalPulse::replay_from_checkpoint_() {
+  // This is a re-read request, NOT a cursor reset. Keep a replay fault
+  // blocked rather than discarding unread meter history or fabricating it.
+  if (!this->reliable_history_enabled_ || !this->history_events_enabled_ ||
+      !this->nvs_ready_ || this->history_replay_fault_ ||
+      this->checkpoint_dirty_) {
+    ESP_LOGW(TAG, "Safe checkpoint replay refused: reliable=%d nvs=%d fault=%d dirty=%d",
+             this->reliable_history_enabled_, this->nvs_ready_,
+             this->history_replay_fault_, this->checkpoint_dirty_);
+    return;
+  }
+  if (this->history_count_ != 0) {
+    ESP_LOGI(TAG, "History queue already awaiting acknowledgment; keeping cursor unchanged");
+    return;
+  }
+  if (this->phase_ != Phase::READY) {
+    ESP_LOGW(TAG, "Safe replay deferred until BLE connection is ready");
+    return;
+  }
+  ESP_LOGI(TAG, "Safe replay requested from acknowledged timestamp %" PRIu32,
+           this->history_ack_.timestamp);
+  this->schedule_poll_(1000);
 }
 
 void PalPulse::dump_config() {

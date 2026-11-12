@@ -65,6 +65,30 @@ Keep the rest of your existing settings. Under Home Assistant's ESPHome device o
 
 This is **not an unlimited archive**. Recovery still depends on readings remaining in the Powerpal's own buffer. If the meter has discarded them, PalPulse refuses to invent history. The old checkpoint is kept compatible with existing firmware.
 
+## ESP32 checkpoint recovery in the PalPulse dashboard
+
+With **ESPHome 0.2b2** and the corresponding Home Assistant preview, the
+firmware reports its saved NVS meter counter, the independently acknowledged
+history cursor and current queue/replay health. The Home Assistant **PalPulse**
+sidebar displays those values separately from Recorder statistics.
+
+If you enable `reliable_history: true` and the corresponding ACK action, the
+panel offers **Retry buffered history from ESP checkpoint**. This requests a
+normal BLE re-read from the last acknowledged cursor. It **does not reset NVS,
+move the saved counter or force Home Assistant to accept incomplete hours**.
+The action will refuse unsafe situations including replay faults, missing
+ACK setup and checkpoints that cannot be confirmed saved.
+
+The matching native action has the same device prefix and meter hash as your
+ACK action, but uses `palpulse_replay_` instead of `palpulse_ack_`. Check
+the actual actions listed under your ESPHome device. Nothing needs to be
+entered manually for the replay action in the PalPulse dashboard.
+
+The firmware reports checkpoints periodically when connected and history
+events are enabled. **Updating ESPHome does not automatically restore old
+missing hours**. Recovery only works while the Powerpal meter still has
+those original records.
+
 ## Notes
 
 - Use one active BLE connection to a Powerpal at a time.
