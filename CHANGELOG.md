@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 0.2b3
+
+### What's Changed
+
+- **Sustained acknowledged history catch-up.** Keep reading the Powerpal's buffer while the durable Home Assistant ACK cursor is behind, even after the ESP32's cumulative energy checkpoint has caught up. Avoid an unnecessary five-minute pause after each history replay batch.
+- **No extra BLE reads while an ACK queue is still draining.** The firmware keeps the oldest unacknowledged event until Home Assistant confirms a durable write.
+- **Recommended reliable setup for new installs.** The documented configuration includes `history_events: true`, `reliable_history: true`, `api.homeassistant_services: true` and `api.custom_services: true`. The CI mirror tests this configuration and no longer advertises a destructive NVS reset button.
+
+### Experimental preview
+
+Retains the existing cumulative NVS v1 checkpoint and independent ACK storage. No NVS migration, reset, or new meter pairing is required. Original history recovery depends on native minute readings still present in the Powerpal buffer. Hardware outage, reconnect and long-soak validation remains necessary. Preserve the original ESPHome YAML and NVS before flashing.
+
+
 ## 0.2b2
 
 ### What's Changed
