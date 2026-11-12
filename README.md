@@ -90,9 +90,11 @@ ACK action, but uses `palpulse_replay_` instead of `palpulse_ack_`. Check
 the actual actions listed under your ESPHome device. Nothing needs to be
 entered manually for the replay action in the PalPulse dashboard.
 
-The firmware reports checkpoints periodically when connected and history
-events are enabled. **Updating ESPHome does not automatically restore old
-missing hours**. Recovery only works while the Powerpal meter still has
+The firmware reports the last saved checkpoint about once per minute when
+history events and the Home Assistant event API are enabled, even if the
+Powerpal BLE link is temporarily disconnected. The `ble_connected` field
+separates a BLE outage from missing event delivery. **Updating ESPHome does
+not automatically restore old missing hours**. Recovery only works while the Powerpal meter still has
 those original records.
 
 ## Notes
