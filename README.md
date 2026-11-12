@@ -2,7 +2,7 @@
 
 A local Bluetooth connection between a **Powerpal electricity meter** and an ESP32. The component reports live power, energy totals, daily usage and battery level to ESPHome. It can also send timestamped meter readings to [PalPulse for Home Assistant](https://github.com/iamhasantan/palpulse-homeassistant).
 
-> **0.2b2 is an early preview.** We're testing reconnects, buffered history, power loss and upgrades. **Back up your working ESPHome configuration and preserve the NVS checkpoint before flashing.** Do not use factory reset to fix an update.
+> **0.2b3 is an early preview.** We're testing reconnects, buffered history, power loss and upgrades. **Back up your working ESPHome configuration and preserve the NVS checkpoint before flashing.** Do not use factory reset to fix an update.
 
 ## Getting started
 
