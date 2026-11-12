@@ -75,12 +75,13 @@ void PalPulse::queue_history_record_(uint32_t timestamp, uint16_t pulses, uint64
 }
 
 void PalPulse::loop() {
-  // Periodic read-only checkpoint report. It is useful even when no native
-  // measurements have arrived. Never report an unsaved cumulative checkpoint.
+  // Report the last *durably saved* counter status every minute even while
+  // the Powerpal BLE client is offline. A missing HA report must no longer
+  // be confused with a temporarily disconnected BLE meter. Any unsaved
+  // checkpoint is flagged as dirty, never reported as a safe replay cursor.
 #ifdef USE_API_HOMEASSISTANT_SERVICES
   const uint32_t now = millis();
-  if (this->history_events_enabled_ && this->is_connected() &&
-      !this->checkpoint_dirty_ &&
+  if (this->history_events_enabled_ &&
       (!this->last_checkpoint_report_ms_ ||
        now - this->last_checkpoint_report_ms_ >= 60000u)) {
     this->last_checkpoint_report_ms_ = now ? now : 1u;
@@ -124,7 +125,7 @@ void PalPulse::publish_checkpoint_status_() {
   // Informational only. These values come from the saved local counter and
   // the separate durable ACK cursor; HA must never treat this as a command
   // to change a Recorder statistic or to overwrite the firmware NVS.
-  if (!this->history_events_enabled_ || !this->is_connected())
+  if (!this->history_events_enabled_)
     return;
   this->fire_homeassistant_event("esphome.palpulse_checkpoint", {
       {"meter", this->parent()->address_str()},
@@ -137,6 +138,7 @@ void PalPulse::publish_checkpoint_status_() {
       {"queue_size", std::to_string(this->history_count_)},
       {"reliable_history", this->reliable_history_enabled_ ? "true" : "false"},
       {"history_events", this->history_events_enabled_ ? "true" : "false"},
+      {"ble_connected", this->is_connected() ? "true" : "false"},
       {"nvs_ready", this->nvs_ready_ ? "true" : "false"},
       {"checkpoint_dirty", this->checkpoint_dirty_ ? "true" : "false"},
       {"replay_fault", this->history_replay_fault_ ? "true" : "false"},
