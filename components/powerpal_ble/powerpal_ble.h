@@ -107,6 +107,8 @@ class PalPulse : public Component, public ble_client::BLEClientNode
   void ack_history_(int32_t timestamp);
   bool save_history_ack_();
   void load_history_ack_();
+  void publish_checkpoint_status_();
+  void replay_from_checkpoint_();
 
   Phase phase_{Phase::OFFLINE};
   Request request_{Request::NONE};
@@ -126,6 +128,7 @@ class PalPulse : public Component, public ble_client::BLEClientNode
   size_t history_tail_{0};
   size_t history_count_{0};
   uint32_t last_history_emit_ms_{0};
+  uint32_t last_checkpoint_report_ms_{0};
   bool live_subscribed_{false};
   bool clock_set_{false};
   bool pairing_pending_{false};
