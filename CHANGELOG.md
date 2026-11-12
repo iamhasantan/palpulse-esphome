@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 0.2b2
+
+### What's Changed
+
+- **ESP32 checkpoint health.** Report the saved Powerpal meter counter, the independently acknowledged history cursor, queue state and replay health to the new PalPulse Home Assistant sidebar.
+- **Retry buffered history.** Add a per-meter action to request a BLE re-read from the existing acknowledged cursor. This is a read-only replay request, not a checkpoint reset.
+- **Conservative safeguards.** Never clear a replay fault, move the ACK cursor, erase NVS or invent measurements to fill a gap. Recovery is limited to original readings still held by the Powerpal meter.
+
+### Experimental preview
+
+Preserve your ESP32's existing NVS checkpoint and save a copy of the working ESPHome YAML before updating. The sidebar's checkpoint recovery requires **PalPulse for Home Assistant 0.2b5**, `history_events: true`, `reliable_history: true`, and the correct native API ACK action. The existing power, energy, daily energy and battery sensors are unchanged. Hardware behaviour still needs real-world testing.
+
 ## 0.2b1
 
 ### What's Changed
