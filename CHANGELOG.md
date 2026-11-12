@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 0.2b4
+
+### What's Changed
+
+- **Publish checkpoint heartbeat even without an active Powerpal BLE connection.** The firmware now reports the last saved NVS meter counter and the independent history-ACK cursor roughly once per minute while timestamped history is enabled and the ESPHome native API can send Home Assistant events. This distinguishes BLE outages from failed Home Assistant event delivery.
+- **Explicit BLE link health.** Add the `ble_connected` flag to the informational `esphome.palpulse_checkpoint` event. Home Assistant may display the last saved checkpoint while disconnected, but replay remains refused unless the connection and all durability guards pass.
+- **No destructive recovery.** The release does not change stored NVS formats, reset the meter, or assume lost minute measurements exist.
+
+### Experimental preview
+
+Requires `history_events: true` and `api.homeassistant_services: true` for event delivery. To enable ACK/replay additionally use `reliable_history: true`, `api.custom_services: true`, the actual per-meter ACK action, and Home Assistant's **Allow the device to perform Home Assistant actions** permission. Back up the current ESPHome YAML and preserve NVS before flashing. Real hardware and BLE reconnect acceptance remains necessary.
+
+
 ## 0.2b3
 
 ### What's Changed
