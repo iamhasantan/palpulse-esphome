@@ -491,6 +491,12 @@ void PalPulse::poll_() {
     return;
   if (this->write_clock_if_valid_())
     return;
+  if (this->reliable_history_enabled_ && this->history_count_ != 0) {
+    // Do not poll BLE for another batch while the native API is awaiting
+    // durable Home Assistant ACKs. Loop() continues transmitting the head.
+    this->schedule_poll_(1000);
+    return;
+  }
   this->read_bounds_();
 }
 
@@ -649,8 +655,17 @@ void PalPulse::stream_complete_() {
     if (err != ESP_OK)
       ESP_LOGD(TAG, "Battery refresh was not queued: %d", err);
   }
-  this->schedule_poll_(this->counter_.last_timestamp < this->newest_record_
-                       ? 1000 : uint32_t(this->interval_minutes_) * 60000);
+  // The energy counter can be caught up while the durable Home Assistant
+  // ACK cursor is many buffered batches behind. Continue replay immediately;
+  // otherwise 30-minute records per five minutes cannot keep up with a
+  // meter generating 60 records per hour during an outage.
+  const bool history_behind = this->reliable_history_enabled_ &&
+                              this->history_events_enabled_ &&
+                              this->history_ack_.timestamp < this->newest_record_;
+  this->schedule_poll_(
+      this->counter_.last_timestamp < this->newest_record_ || history_behind
+          ? 1000
+          : uint32_t(this->interval_minutes_) * 60000);
 }
 
 void PalPulse::request_timeout_() {

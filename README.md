@@ -2,7 +2,7 @@
 
 A local Bluetooth connection between a **Powerpal electricity meter** and an ESP32. The component reports live power, energy totals, daily usage and battery level to ESPHome. It can also send timestamped meter readings to [PalPulse for Home Assistant](https://github.com/iamhasantan/palpulse-homeassistant).
 
-> **0.2b2 is an early preview.** We're testing reconnects, buffered history, power loss and upgrades. **Back up your working ESPHome configuration and preserve the NVS checkpoint before flashing.** Do not use factory reset to fix an update.
+> **0.2b3 is an early preview.** We're testing reconnects, buffered history, power loss and upgrades. **Back up your working ESPHome configuration and preserve the NVS checkpoint before flashing.** Do not use factory reset to fix an update.
 
 ## Getting started
 
@@ -10,7 +10,7 @@ Use an ESP32 with ESP-IDF and ESPHome 2026.10.2 or newer. Add the component to y
 
 ```yaml
 external_components:
-  - source: github://iamhasantan/palpulse-esphome@0.2b2
+  - source: github://iamhasantan/palpulse-esphome@0.2b3
     components: [powerpal_ble]
 
 esp32_ble_tracker:
@@ -25,6 +25,7 @@ time:
 
 api:
   homeassistant_services: true
+  custom_services: true  # durable per-meter ACK and buffered replay
 
 sensor:
   - platform: powerpal_ble
@@ -34,6 +35,7 @@ sensor:
     pulses_per_kwh: 3200 # use YOUR meter's actual calibration
     time_id: ha_time
     history_events: true
+    reliable_history: true  # strongly recommended for new installations
     power:
       name: "Powerpal Power"
     energy:
@@ -45,6 +47,8 @@ sensor:
 ```
 
 Add these to your **existing** ESPHome blocks. Don't duplicate `api:` or `sensor:`. The example leaves out common Wi-Fi, ESP32, encryption and OTA settings, which you'll need to configure separately.
+
+For reliable history, configure the actual `esphome.*_palpulse_ack_<meterhash>` action in the PalPulse Home Assistant integration. The firmware logs the exact action name; never copy the sample hash. Enable **Allow the device to perform Home Assistant actions** on its Home Assistant ESPHome device. Without the ACK action, record delivery cannot recover after an outage.
 
 ## Preview: acknowledged history
 
@@ -62,6 +66,8 @@ sensor:
 ```
 
 Keep the rest of your existing settings. Under Home Assistant's ESPHome device options, allow the device to perform Home Assistant actions. In the PalPulse integration's **History delivery and acknowledgments** settings, enter your device's action, for example `esphome.powerpal_proxy_palpulse_ack_1a2b3c4d`. Each meter registers its own action with an eight-character meter hash suffix. Confirm the **actual** action name in Home Assistant, and use that rather than the example.
+
+Reliable history catches up from the separately saved ACK timestamp and keeps advancing through buffered batches instead of waiting the ordinary five-minute live poll between replay batches. The 40-byte NVS checkpoint saves cumulative energy only; it does **not** store all historic minute records.
 
 This is **not an unlimited archive**. Recovery still depends on readings remaining in the Powerpal's own buffer. If the meter has discarded them, PalPulse refuses to invent history. The old checkpoint is kept compatible with existing firmware.
 

@@ -22,6 +22,7 @@ api:
     key: "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
   reboot_timeout: 0s
   homeassistant_services: true
+  custom_services: true  # required for durable history ACK/replay
 
 ota:
   - platform: esphome
@@ -68,6 +69,7 @@ sensor:
     pulses_per_kwh: 3200
     time_id: homeassistant_time
     history_events: true
+    reliable_history: true  # never silently fall back to unacknowledged delivery
     power:
       name: "Powerpal Power"
     daily_energy:
@@ -87,6 +89,3 @@ web_server:
 button:
   - platform: restart
     name: "Powerpal Restart"
-  - platform: factory_reset
-    name: "Powerpal Reset NVS"
-    entity_category: diagnostic
