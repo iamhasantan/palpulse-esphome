@@ -89,6 +89,3 @@ web_server:
 button:
   - platform: restart
     name: "Powerpal Restart"
-  - platform: factory_reset
-    name: "Powerpal Reset NVS"
-    entity_category: diagnostic
