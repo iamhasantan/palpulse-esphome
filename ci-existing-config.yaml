@@ -1,19 +1,14 @@
-# CI-only structure mirror of the existing powerpal-proxy YAML.
-# Placeholder credentials, test-net address and sample meter values.
-# DO NOT deploy this fixture.
+# CI-only structure mirror of the hardware-generic README 1.0 configuration.
+# Placeholder credentials and test meter; DO NOT deploy this fixture.
+# Use a local component source here so the PR can validate before tag 1.0 exists.
 esphome:
   name: powerpal-proxy
   friendly_name: powerpal-proxy
 
 esp32:
   board: esp32dev
-  variant: esp32
   framework:
     type: esp-idf
-    advanced:
-      minimum_chip_revision: "3.1"
-      sram1_as_iram: true
-      flash_chip: generic
 
 logger:
 
@@ -22,7 +17,7 @@ api:
     key: "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
   reboot_timeout: 0s
   homeassistant_services: true
-  custom_services: true  # required for durable history ACK/replay
+  custom_services: true
 
 ota:
   - platform: esphome
@@ -35,11 +30,6 @@ wifi:
   min_auth_mode: WPA2
   power_save_mode: none
   reboot_timeout: 0s
-  manual_ip:
-    static_ip: 192.0.2.40
-    gateway: 192.0.2.1
-    subnet: 255.255.255.0
-    dns1: 192.0.2.1
 
 external_components:
   - source:
@@ -64,28 +54,21 @@ ble_client:
 sensor:
   - platform: powerpal_ble
     ble_client_id: powerpal
+    history_events: true
+    reliable_history: true
     pairing_code: 123456
     notification_interval: 5
     pulses_per_kwh: 3200
     time_id: homeassistant_time
-    history_events: true
-    reliable_history: true  # never silently fall back to unacknowledged delivery
+
     power:
       name: "Powerpal Power"
+
     daily_energy:
       name: "Powerpal Daily Energy"
+
     energy:
       name: "Powerpal Total Energy"
+
     battery_level:
       name: "Powerpal Battery"
-
-web_server:
-  port: 80
-  auth:
-    type: digest
-    username: "ci-only-user"
-    password: "ci-only-password"
-
-button:
-  - platform: restart
-    name: "Powerpal Restart"
