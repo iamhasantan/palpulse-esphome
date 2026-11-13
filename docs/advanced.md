@@ -29,7 +29,7 @@ the meter simultaneously.
 
 ```yaml
 external_components:
-  - source: github://iamhasantan/palpulse-esphome@feat/independent-powerpal-ble-foundation
+  - source: github://iamhasantan/palpulse-esphome@1.0
     components: [powerpal_ble]
     refresh: 0s
 
