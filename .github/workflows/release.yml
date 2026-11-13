@@ -1,4 +1,4 @@
-name: Publish PalPulse ESPHome preview
+name: Publish PalPulse ESPHome release
 
 on:
   push:
@@ -13,7 +13,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: palpulse-esphome-preview-release
+  group: palpulse-esphome-release
   cancel-in-progress: false
 
 jobs:
@@ -27,40 +27,46 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: "3.12"
+          python-version: '3.12'
       - name: Verify native tests and ESPHome firmware
         run: |
           set -euo pipefail
           make test
           python -m pip install -r requirements-test.txt
           esphome config ci-powerpal.yaml
+          esphome config ci-existing-config.yaml
           esphome compile ci-powerpal.yaml
-      - name: Validate version and prepare notes
+      - name: Validate version, changelog and prepare feature release notes
         id: version
+        shell: bash
         run: |
           set -euo pipefail
           version="$(tr -d '\r\n' < VERSION)"
-          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+b[0-9]+$ ]]; then
-            echo "::error::Expected preview version, e.g. 0.2b1"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+(b[0-9]+)?$ ]]; then
+            echo '::error::Expected version x.y or x.ybN' >&2
             exit 1
           fi
-          awk -v tag="$version" '
-            $0 == "## " tag {show=1; next}
-            show && /^## / {exit}
-            show {print}
-          ' CHANGELOG.md > "$RUNNER_TEMP/release-notes.md"
-          if ! grep -q "What's Changed" "$RUNNER_TEMP/release-notes.md"; then
-            echo "::error::No matching release notes"
-            exit 1
-          fi
+          grep -Fxq "## $version" CHANGELOG.md || { echo '::error::Missing version changelog' >&2; exit 1; }
+          grep -q '^## Features$' README.md || { echo '::error::Missing product features README' >&2; exit 1; }
+          grep -Fq "github://iamhasantan/palpulse-esphome@$version" README.md || { echo '::error::README firmware pin differs from version' >&2; exit 1; }
+          VERSION="$version" python - <<'PY'
+          import os
+          from pathlib import Path
+          version=os.environ['VERSION']
+          notes=Path('README.md').read_text(encoding='utf-8')
+          root=f'https://github.com/iamhasantan/palpulse-esphome/blob/{version}/'
+          for target in ('docs/advanced.md','docs/TEST_PLAN.md','CHANGELOG.md','LICENSE','docs/PROVENANCE.md'):
+              notes=notes.replace(f']({target})',f']({root}{target})')
+          Path(os.environ['RUNNER_TEMP'],'release-notes.md').write_text(notes,encoding='utf-8')
+          PY
           echo "tag=$version" >> "$GITHUB_OUTPUT"
-      - name: Publish source release for pinned external_components
+      - name: Publish tagged source for pinned external_components
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}
         run: |
           set -euo pipefail
-          title="PalPulse for ESPHome $TAG (experimental preview)"
+          title="PalPulse for ESPHome $TAG"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "$title" \
               --notes-file "$RUNNER_TEMP/release-notes.md" --latest
@@ -68,3 +74,21 @@ jobs:
             gh release create "$TAG" --target "$GITHUB_SHA" \
               --title "$title" --notes-file "$RUNNER_TEMP/release-notes.md" --latest
           fi
+      - name: Verify release tag and README content
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          tagged="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}" --jq '.object.sha')"
+          test "$tagged" = "$GITHUB_SHA" || { echo '::error::Release tag not on validated commit' >&2; exit 1; }
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" --jq '{tag_name, draft, prerelease, html_url, body}' > "$RUNNER_TEMP/release.json"
+          python - "$RUNNER_TEMP/release.json" "$RUNNER_TEMP/release-notes.md" <<'PY'
+          import json,sys
+          from pathlib import Path
+          data=json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
+          expected=Path(sys.argv[2]).read_text(encoding='utf-8').strip()
+          assert data['draft'] is False
+          assert data['body'].strip() == expected, 'Release description does not match feature README'
+          print('Published and verified:', data['html_url'])
+          PY
