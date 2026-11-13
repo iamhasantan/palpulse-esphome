@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+## 1.0
+
+### Features
+
+- **Local electricity monitoring:** Direct Powerpal BLE pairing, live power, cumulative and daily energy, and battery level through native ESPHome sensor entities.
+- **Timestamped history:** Native-minute Powerpal measurements for the companion PalPulse Home Assistant integration.
+- **Reliable delivery:** Per-meter ACK actions, bounded buffered replay and an independently persisted acknowledgement cursor.
+- **Durable checkpoints:** Per-meter ESP32 NVS counter state, recovery safeguards, duplicate and out-of-order protection.
+- **Diagnostics and recovery:** Heartbeat checkpoint events, BLE connection status and safe replay eligibility, including after disconnections.
+- **Local control:** ESP-IDF support, ESPHome native API, encrypted connections and OTA support using standard ESPHome configuration.
+
+### Configuration and compatibility
+
+- Provide a complete, hardware-generic working ESPHome YAML example pinned to `github://iamhasantan/palpulse-esphome@1.0`.
+- Document the Home Assistant history requirements: `history_events: true`, `reliable_history: true`, `api.homeassistant_services: true`, `api.custom_services: true`, BLE client, and Home Assistant time synchronization.
+- Home Assistant users must permit the ESPHome device to perform Home Assistant actions. PalPulse for Home Assistant 0.9 automatically discovers the meter-specific ACK action.
+- Preserve existing NVS checkpoints and calibration on upgrade. Do not use factory reset to resolve history gaps.
+
+### Validation
+
+- Unit and sanitizer checks for the existing meter protocol and energy-accounting code.
+- ESPHome 2026.10.2 configuration validation and ESP-IDF firmware build using a representative ESP32 configuration.
+- Version 1.0 packages the existing 0.2b4 firmware logic without changing BLE, energy accounting, NVS layouts or history-replay algorithms. Real-device compatibility beyond the tested hardware remains dependent on the user's setup.
+
 ## 0.2b4
 
 ### What's Changed
